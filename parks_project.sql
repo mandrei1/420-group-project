@@ -162,3 +162,118 @@ INSERT INTO message VALUES (3, 3, SYSTIMESTAMP, 'Your campsite reservation is co
 -- Next section is for FEATURES (1–10)
 -- Add your procedures below this line
 --------------------------------------------------------------
+
+--------------------------------------------------------------
+-- Feature 1 (Udoka) — Add a Visitor
+--------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE add_visitor (
+    p_name    IN VARCHAR2,
+    p_email   IN VARCHAR2,
+    p_address IN VARCHAR2,
+    p_state   IN VARCHAR2,
+    p_zip     IN VARCHAR2
+)
+AS
+    v_visitor_id visitors.visitor_id%TYPE;
+BEGIN
+    -- Try to find an existing visitor by email
+    BEGIN
+        SELECT visitor_id
+          INTO v_visitor_id
+          FROM visitors
+         WHERE email = p_email;
+
+        -- If found, update their info
+        UPDATE visitors
+           SET name    = p_name,
+               address = p_address,
+               state   = p_state,
+               zipcode = p_zip
+         WHERE visitor_id = v_visitor_id;
+
+        DBMS_OUTPUT.PUT_LINE(
+            'The visitor already exists. Updated information for visitor ID = ' || v_visitor_id
+        );
+
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            -- No existing visitor → insert a new one
+            v_visitor_id := seq_visitor_id.NEXTVAL;
+
+            INSERT INTO visitors (
+                visitor_id, name, email, address, state, zipcode
+            ) VALUES (
+                v_visitor_id, p_name, p_email, p_address, p_state, p_zip
+            );
+
+            DBMS_OUTPUT.PUT_LINE(
+                'New visitor added. Visitor ID = ' || v_visitor_id
+            );
+    END;
+END;
+/
+
+--------------------------------------------------------------
+-- Feature 6 (Udoka) — List Available Campsites
+--------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE list_available_campsites (
+    p_park_name  IN VARCHAR2,
+    p_start_date IN DATE,
+    p_end_date   IN DATE,
+    p_num_people IN NUMBER
+)
+AS
+    v_park_id   parks.park_id%TYPE;
+    v_conflicts NUMBER;
+    v_match     BOOLEAN := FALSE;
+BEGIN
+    -- 1) Check park exists
+    BEGIN
+        SELECT park_id
+          INTO v_park_id
+          FROM parks
+         WHERE park_name = p_park_name;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUTLINE('No such park.');
+            RETURN;
+    END;
+
+    -- 2) Loop through campsites in this park that can fit p_num_people
+    FOR camp_rec IN (
+        SELECT facility_id,
+               facility_name,
+               capacity
+          FROM facilities
+         WHERE park_id = v_park_id
+           AND facility_type = 'campsite'
+           AND capacity >= p_num_people
+    )
+    LOOP
+        -- 3) Check for conflicting reservations
+        SELECT COUNT(*)
+          INTO v_conflicts
+          FROM transactions t
+         WHERE t.facility_id = camp_rec.facility_id
+           AND t.transaction_type = 2          -- campsite
+           AND t.status <> 3                   -- not canceled
+           AND TRUNC(t.start_time) < p_end_date
+           AND p_start_date < TRUNC(t.start_time)
+                                + NUMTOINTERVAL(t.num_of_days, 'DAY');
+
+        IF v_conflicts = 0 THEN
+            v_match := TRUE;
+            DBMS_OUTPUT.PUT_LINE(
+                'Campsite: ' || camp_rec.facility_name ||
+                ' | Max people: ' || camp_rec.capacity
+            );
+        END IF;
+    END LOOP;
+
+    -- 4) If nothing matched
+    IF NOT v_match THEN
+        DBMS_OUTPUT.PUT_LINE('No matches');
+    END IF;
+END;
+/
+
