@@ -333,69 +333,6 @@ commit;
 end;
 /
     
---------------------------------------------------------------
--- Feature 6 (Udoka) — List Available Campsites
---------------------------------------------------------------
-CREATE OR REPLACE PROCEDURE list_available_campsites (
-    p_park_name  IN VARCHAR2,
-    p_start_date IN DATE,
-    p_end_date   IN DATE,
-    p_num_people IN NUMBER
-)
-AS
-    v_park_id   parks.park_id%TYPE;
-    v_conflicts NUMBER;
-    v_match     BOOLEAN := FALSE;
-BEGIN
-    -- 1) Check park exists
-    BEGIN
-        SELECT park_id
-          INTO v_park_id
-          FROM parks
-         WHERE park_name = p_park_name;
-    EXCEPTION
-        WHEN NO_DATA_FOUND THEN
-            DBMS_OUTPUT.PUTLINE('No such park.');
-            RETURN;
-    END;
-
-    -- 2) Loop through campsites in this park that can fit p_num_people
-    FOR camp_rec IN (
-        SELECT facility_id,
-               facility_name,
-               capacity
-          FROM facilities
-         WHERE park_id = v_park_id
-           AND facility_type = 'campsite'
-           AND capacity >= p_num_people
-    )
-    LOOP
-        -- 3) Check for conflicting reservations
-        SELECT COUNT(*)
-          INTO v_conflicts
-          FROM transactions t
-         WHERE t.facility_id = camp_rec.facility_id
-           AND t.transaction_type = 2          -- campsite
-           AND t.status <> 3                   -- not canceled
-           AND TRUNC(t.start_time) < p_end_date
-           AND p_start_date < TRUNC(t.start_time)
-                                + NUMTOINTERVAL(t.num_of_days, 'DAY');
-
-        IF v_conflicts = 0 THEN
-            v_match := TRUE;
-            DBMS_OUTPUT.PUT_LINE(
-                'Campsite: ' || camp_rec.facility_name ||
-                ' | Max people: ' || camp_rec.capacity
-            );
-        END IF;
-    END LOOP;
-
-    -- 4) If nothing matched
-    IF NOT v_match THEN
-        DBMS_OUTPUT.PUT_LINE('No matches');
-    END IF;
-END;
-/
 
 --feature 5 (Rosaire) update status of a parking lot
 CREATE OR REPLACE PROCEDURE update_parking_status (
@@ -456,74 +393,64 @@ BEGIN
     END IF;
 END;
 /
---feature 6 (Rosaire): list all campsites available in a park
+-- Feature 6 (Rosaire) — List Available Campsites
 CREATE OR REPLACE PROCEDURE list_available_campsites (
-    p_park_name  IN parks.park_name%TYPE,
+    p_park_name  IN VARCHAR2,
     p_start_date IN DATE,
     p_end_date   IN DATE,
     p_num_people IN NUMBER
 )
-IS
-    v_park_id NUMBER;
-    v_count   NUMBER := 0;
-    v_exist   NUMBER;
-
-    CURSOR c_sites IS
-        SELECT facility_id, facility_name, capacity
-        FROM facilities
-        WHERE park_id = v_park_id
-          AND facility_type = 'campsite'
-          AND capacity >= p_num_people;
-
-    v_conflict NUMBER;
-    v_start DATE := TRUNC(p_start_date);
-    v_end   DATE := TRUNC(p_end_date);
+AS
+    v_park_id   parks.park_id%TYPE;
+    v_conflicts NUMBER;
+    v_match     NUMBER := 0;  -- 0 = no matches, 1 = at least one match
 BEGIN
-    -- 1) Validate park
-    SELECT COUNT(*) INTO v_exist
-    FROM parks
-    WHERE park_name = p_park_name;
+    -- 1) Check that the park exists
+    BEGIN
+        SELECT park_id
+          INTO v_park_id
+          FROM parks
+         WHERE park_name = p_park_name;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('No such park.');
+            RETURN;
+    END;
 
-    IF v_exist = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('No such park.');
-        RETURN;
-    END IF;
-
-    SELECT park_id INTO v_park_id
-    FROM parks
-    WHERE park_name = p_park_name;
-
-    -- 2) Check if any campsite meets the capacity requirement
-    SELECT COUNT(*) INTO v_exist
-    FROM facilities
-    WHERE park_id = v_park_id
-      AND facility_type = 'campsite'
-      AND capacity >= p_num_people;
-
-    IF v_exist = 0 THEN
-        DBMS_OUTPUT.PUT_LINE('No matches found.');
-        RETURN;
-    END IF;
-
-    -- 3) Check conflicts
-    FOR r IN c_sites LOOP
+    -- 2) Loop through campsites in this park that can fit p_num_people
+    FOR camp_rec IN (
+        SELECT facility_id,
+               facility_name,
+               capacity
+          FROM facilities
+         WHERE park_id = v_park_id
+           AND facility_type = 'campsite'
+           AND capacity >= p_num_people
+    )
+    LOOP
+        -- 3) Check for conflicting reservations on this campsite
+        --    Reserved duration: TRUNC(start_time) to TRUNC(start_time) + num_of_days
         SELECT COUNT(*)
-        INTO v_conflict
-        FROM transactions
-        WHERE facility_id = r.facility_id
-          AND transaction_type = 2      -- campsite reservation
-          AND status <> 3               -- not canceled
-          AND TRUNC(start_time) < v_end
-          AND v_start < TRUNC(start_time + NUMTOINTERVAL(num_of_days, 'day'));
+          INTO v_conflicts
+          FROM transactions t
+         WHERE t.facility_id = camp_rec.facility_id
+           AND t.transaction_type = 2           -- campsite reservation
+           AND t.status <> 3                    -- not canceled
+           AND TRUNC(t.start_time) < p_end_date
+           AND p_start_date < TRUNC(t.start_time) + t.num_of_days;
 
-        IF v_conflict = 0 THEN
-            DBMS_OUTPUT.PUT_LINE(r.facility_name || ' (max ' || r.capacity || ')');
-            v_count := v_count + 1;
+        IF v_conflicts = 0 THEN
+            v_match := 1;
+
+            DBMS_OUTPUT.PUT_LINE(
+                'Campsite: ' || camp_rec.facility_name ||
+                ' | Max people: ' || camp_rec.capacity
+            );
         END IF;
     END LOOP;
 
-    -- 4) If no campsites printed
-    IF v_count = 0 THEN
+    -- 4) If no campsite matched
+    IF v_match = 0 THEN
         DBMS_OUTPUT.PUT_LINE('No matches');
     END IF;
 END;
