@@ -255,6 +255,83 @@ BEGIN
   END LOOP;
 END;
 /
+
+-----------------------------------------------------------------------
+-- Feature 4 (Alex) - List all parking lots that have available spots in a park
+-----------------------------------------------------------------------
+create or replace procedure list_available_parking(v_park_name varchar)
+as
+    v_count int;
+begin
+    -- 1)check whether there is a park with the input park name
+    select count(*) into v_count from parks where park_name = v_park_name;
+    
+    -- if the park doesn't exist
+    if v_count = 0 then
+        dbms_output.put_line('No such park');
+        return;
+    end if;
+    
+    -- 2) print the availability status of existing parking lots
+    -- 1=open, 2=closed, 3=full, 4=limited
+    for r in (
+        select f.facility_name,
+            case f.status
+                when 1 then 'open'
+                when 2 then 'closed'
+                when 3 then 'full'
+                when 4 then 'limited'
+            end as status_text
+        from facilities f, parks p
+        where f.park_id = p.park_id and p.park_name = v_park_name and f.facility_type = 'parking' 
+        -- nvl handles null values, check to make sure there are open spots
+        and nvl(f.spots_taken,0) < f.capacity and f.status in (1,4)
+    ) loop
+        v_count := v_count +1;
+        dbms_output.put_line('Parking Lot: ' || r.facility_name || ' availability is ' || r.status_text);
+    end loop;
+    
+    -- if there are no parking lots that are available in a park
+    if v_count = 0 then
+        dbms_output.put_line('There are no available parking lots in this park');
+    end if;
+end;
+/
+
+-- Test 1: Regular Case
+-- Check an existing park for available parking spots
+set serveroutput on;
+
+begin
+    dbms_output.put_line('Test 1');
+    list_available_parking('Centennial Park');
+end;
+/
+
+-- Test 2: Special Case
+-- Check a nonexiting park for parking spots
+begin
+    dbms_output.put_line('Test 2');
+    list_available_parking('Yosemite National Park');
+end;
+/
+
+-- Test 3: Special
+-- Existing park but there are no available parking spots
+-- have to update one of the parks to 'full'
+declare
+begin
+    update facilities f set f.spots_taken = f.capacity, f.status = 3
+    where f.facility_type = 'parking'
+    and f.park_id = (
+        select park_id from parks where park_name = 'Patapsco Valley Park' 
+    );
+    
+commit;
+    dbms_output.put_line('Test 3');
+    list_available_parking('Patapsco Valley Park');
+end;
+/
     
 --------------------------------------------------------------
 -- Feature 6 (Udoka) — List Available Campsites
