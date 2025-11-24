@@ -319,4 +319,109 @@ BEGIN
     END IF;
 END;
 /
+--------------------------------------------------------------
+-- Feature 8 (Mara) — Reserve a tour
+--------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE reserve_tour (
+    p_facility_id   IN NUMBER,
+    p_visitor_id    IN NUMBER,
+    p_start_time    IN TIMESTAMP,
+    p_num_adults    IN NUMBER,
+    p_num_children  IN NUMBER
+)
+AS
+    v_is_tour        NUMBER;
+    v_visitor_exists NUMBER;
+    v_tour_detail_id NUMBER;
+    v_avail_spots    NUMBER;
+    v_daily_price    NUMBER;
+    v_child_price    NUMBER;
+    v_total_price    NUMBER;
+    v_facility_name  VARCHAR2(200);
+    v_txn_id         NUMBER;
+    v_msg_id         NUMBER;
+BEGIN
+    -- Check if the facility has a tour
+    SELECT COUNT(*)
+    INTO v_is_tour
+    FROM facilities
+    WHERE facility_id = p_facility_id
+      AND facility_type = 'tour';
+
+    IF v_is_tour = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No such tour');
+        RETURN;
+    END IF;
+    -- Check if visitor exists
+    SELECT COUNT(*)
+    INTO v_visitor_exists
+    FROM visitors
+    WHERE visitor_id = p_visitor_id;
+
+    IF v_visitor_exists = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No such visitor');
+        RETURN;
+    END IF;
+
+    -- Check if there  is a tour at that start time
+    BEGIN
+        SELECT tour_detail_id, available_spots
+        INTO v_tour_detail_id, v_avail_spots
+        FROM tour_detail
+        WHERE facility_id = p_facility_id
+          AND start_time = p_start_time;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('No tour at the given time');
+            RETURN;
+    END;
+    -- Check sufficient capacity
+    IF v_avail_spots < (p_num_adults + p_num_children) THEN
+        DBMS_OUTPUT.PUT_LINE('Insufficient capacity');
+        RETURN;
+    END IF;
+    -- Compute the total price
+    SELECT daily_price, child_price, facility_name
+    INTO v_daily_price, v_child_price, v_facility_name
+    FROM facilities
+    WHERE facility_id = p_facility_id;
+
+    v_total_price :=
+          v_daily_price  * p_num_adults
+        + v_child_price  * p_num_children;
+    --  Insert transaction
+    v_txn_id := seq_txn_id.NEXTVAL;
+
+    INSERT INTO transactions (
+        transaction_id, visitor_id, transaction_type,
+        facility_id, start_time, num_of_days,
+        num_adults, num_children, total_price, status
+    )
+    VALUES (
+        v_txn_id, p_visitor_id, 3,
+        p_facility_id, p_start_time, 1,
+        p_num_adults, p_num_children, v_total_price, 1
+    );
+
+    -- Reduce available spots
+    UPDATE tour_detail
+    SET available_spots = available_spots - (p_num_adults + p_num_children)
+    WHERE tour_detail_id = v_tour_detail_id;
+
+    -- Insert message
+
+    v_msg_id := seq_message_id.NEXTVAL;
+
+    INSERT INTO message (message_id, visitor_id, message_time, body)
+    VALUES (
+        v_msg_id,
+        p_visitor_id,
+        SYSTIMESTAMP,
+        'Thanks for reserving tour ' || v_facility_name ||
+        ' starting at ' || TO_CHAR(p_start_time,'YYYY-MM-DD HH24:MI')
+    );
+    DBMS_OUTPUT.PUT_LINE('Tour reserved successfully.');
+
+END;
+/
 
