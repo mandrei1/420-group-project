@@ -212,7 +212,50 @@ BEGIN
     END;
 END;
 /
-
+--------------------------------------------------------------
+-- Feature 2 (Mara) — List all transactions placed by a visitor
+--------------------------------------------------------------
+CREATE OR REPLACE PROCEDURE list_transactions_by_visitor (p_name IN VARCHAR2) AS
+  v_id visitors.visitor_id % TYPE;
+BEGIN
+  BEGIN
+    SELECT
+      visitor_id INTO v_id
+    FROM
+      visitors
+    WHERE
+      name = p_name;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      DBMS_OUTPUT.PUT_LINE ('No such visitor');
+      RETURN;
+  END;
+  DBMS_OUTPUT.PUT_LINE ('Transactions for visitor: ' || p_name);
+  FOR rec IN (
+    SELECT
+      t.transaction_id,
+      t.transaction_type,
+      f.facility_name,
+      t.start_time,
+      t.num_of_days,
+      t.status,
+      t.total_price
+    FROM
+      transactions t
+      LEFT JOIN facilities f ON t.facility_id = f.facility_id
+    WHERE
+      t.visitor_id = v_id
+    ORDER BY
+      t.start_time
+  )
+  LOOP
+    DBMS_OUTPUT.PUT_LINE (
+      'Txn ID: ' || rec.transaction_id || ', Type: ' || rec.transaction_type || ', Facility: ' || NVL (rec.facility_name, 'n/a') || ', Start: ' || TO_CHAR(rec.start_time, 'YYYY-MM-DD HH24:MI') || ', Days: ' || rec.num_of_days || ', Status: ' || rec.status || ', Total: $' || rec.total_price
+    );
+  END LOOP;
+END;
+/
+    
 --------------------------------------------------------------
 -- Feature 6 (Udoka) — List Available Campsites
 --------------------------------------------------------------
