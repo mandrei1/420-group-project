@@ -424,4 +424,136 @@ BEGIN
 
 END;
 /
+--feature 5 (Rosaire) update status of a parking lot
+CREATE OR REPLACE PROCEDURE update_parking_status (
+    p_facility_id IN NUMBER,
+    p_spots_taken IN NUMBER
+)
+IS
+    v_exist       NUMBER;
+    v_capacity    facilities.capacity%TYPE;
+    v_name        facilities.facility_name%TYPE;
+BEGIN
+    -- 1) Validate facility ID AND ensure it's a parking lot
+    SELECT COUNT(*)
+    INTO v_exist
+    FROM facilities
+    WHERE facility_id = p_facility_id
+      AND facility_type = 'parking';
+
+    IF v_exist = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Invalid facility ID');
+        RETURN;
+    END IF;
+
+    -- Retrieve capacity + name
+    SELECT capacity, facility_name
+    INTO v_capacity, v_name
+    FROM facilities
+    WHERE facility_id = p_facility_id;
+
+    -- 2) Update spots_taken
+    UPDATE facilities
+    SET spots_taken = p_spots_taken
+    WHERE facility_id = p_facility_id;
+
+    -- 3) FULL
+    IF p_spots_taken >= v_capacity THEN
+        UPDATE facilities
+        SET status = 3   -- full
+        WHERE facility_id = p_facility_id;
+
+        DBMS_OUTPUT.PUT_LINE('The parking lot ' || v_name || ' becomes FULL.');
+
+    -- 4) LIMITED
+    ELSIF p_spots_taken >= 0.9 * v_capacity THEN
+        UPDATE facilities
+        SET status = 4   -- limited
+        WHERE facility_id = p_facility_id;
+
+        DBMS_OUTPUT.PUT_LINE('The parking lot ' || v_name || ' becomes LIMITED.');
+
+    -- 5) OPEN
+    ELSE
+        UPDATE facilities
+        SET status = 1   -- open
+        WHERE facility_id = p_facility_id;
+
+        DBMS_OUTPUT.PUT_LINE('The parking lot ' || v_name || ' is OPEN.');
+    END IF;
+END;
+/
+--feature 6 (Rosaire): list all campsites available in a park
+CREATE OR REPLACE PROCEDURE list_available_campsites (
+    p_park_name  IN parks.park_name%TYPE,
+    p_start_date IN DATE,
+    p_end_date   IN DATE,
+    p_num_people IN NUMBER
+)
+IS
+    v_park_id NUMBER;
+    v_count   NUMBER := 0;
+    v_exist   NUMBER;
+
+    CURSOR c_sites IS
+        SELECT facility_id, facility_name, capacity
+        FROM facilities
+        WHERE park_id = v_park_id
+          AND facility_type = 'campsite'
+          AND capacity >= p_num_people;
+
+    v_conflict NUMBER;
+    v_start DATE := TRUNC(p_start_date);
+    v_end   DATE := TRUNC(p_end_date);
+BEGIN
+    -- 1) Validate park
+    SELECT COUNT(*) INTO v_exist
+    FROM parks
+    WHERE park_name = p_park_name;
+
+    IF v_exist = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No such park.');
+        RETURN;
+    END IF;
+
+    SELECT park_id INTO v_park_id
+    FROM parks
+    WHERE park_name = p_park_name;
+
+    -- 2) Check if any campsite meets the capacity requirement
+    SELECT COUNT(*) INTO v_exist
+    FROM facilities
+    WHERE park_id = v_park_id
+      AND facility_type = 'campsite'
+      AND capacity >= p_num_people;
+
+    IF v_exist = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No matches found.');
+        RETURN;
+    END IF;
+
+    -- 3) Check conflicts
+    FOR r IN c_sites LOOP
+        SELECT COUNT(*)
+        INTO v_conflict
+        FROM transactions
+        WHERE facility_id = r.facility_id
+          AND transaction_type = 2      -- campsite reservation
+          AND status <> 3               -- not canceled
+          AND TRUNC(start_time) < v_end
+          AND v_start < TRUNC(start_time + NUMTOINTERVAL(num_of_days, 'day'));
+
+        IF v_conflict = 0 THEN
+            DBMS_OUTPUT.PUT_LINE(r.facility_name || ' (max ' || r.capacity || ')');
+            v_count := v_count + 1;
+        END IF;
+    END LOOP;
+
+    -- 4) If no campsites printed
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('No matches');
+    END IF;
+END;
+/
+
 
