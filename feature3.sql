@@ -1,4 +1,4 @@
-
+/*
 CREATE TABLE tour_detail (
     tour_detail_id NUMBER(10)   PRIMARY KEY,
     facility_id    NUMBER(10)   NOT NULL,      -- FK to facilities(facility_type='tour')
@@ -6,7 +6,7 @@ CREATE TABLE tour_detail (
     available_spots NUMBER(6)   NOT NULL,
     CONSTRAINT fk_tour_fac FOREIGN KEY (facility_id) REFERENCES facilities(facility_id)
 );
-
+*/
 --alter table tour_detail
 --add tour_name varchar2(250); 
 --alter table tour_detail
