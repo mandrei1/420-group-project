@@ -619,8 +619,8 @@ where facility_id=fid;
 
 -- insert if no conflict 
 insertBody:= 'Thanks for reserving campsite ' || v_getFname || ' from  ' || sdate || ' for ' || daysnumber|| ' days. ' ; 
-insert into message( message_id, visitor_id, message_time, body )
-values (seq_message_id.NextVal, vid, systimestamp, insertBody) ; 
+insert into message( message_id, visitor_id, message_time, message_body )
+values (seq_message_id.NextVal, vid, systimestamp, insertBody);
 
 
 end; 
@@ -733,7 +733,7 @@ BEGIN
 
     v_msg_id := seq_message_id.NEXTVAL;
 
-    INSERT INTO message (message_id, visitor_id, message_time, body)
+    INSERT INTO message (message_id, visitor_id, message_time, message_body)
     VALUES (
         v_msg_id,
         p_visitor_id,
