@@ -765,8 +765,8 @@ begin
    
    -- 1) check if a transaction exits
    begin
-        select status, visitor_id, facility_id, start_time, num_adults, num_children
-        into v_status, v_vid, v_fid, v_start_time, v_num_adults, v_num_children
+        select status, visitor_id, facility_id, start_time, num_adults, num_children, transaction_type
+        into v_status, v_vid, v_fid, v_start_time, v_num_adults, v_num_children, v_type
         from transactions
         where transaction_id = v_tid;
     exception
@@ -818,7 +818,7 @@ end if;
 
     
     -- 5) insert a transaction message for the new canceled transaction
-    insert into message(message_id, visitor_id, message_time, body)
+    insert into message(message_id, visitor_id, message_time, message_body)
     values (seq_message_id.nextval, v_vid, systimestamp, 
     'Your transaction ' || v_tid || ' has been canceled');
     
