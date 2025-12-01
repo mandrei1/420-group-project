@@ -746,6 +746,121 @@ BEGIN
 END;
 /
 
+------------------------------------------
+-- Feature 9 (Alex): Cancel a transaction
+-- Input is transaction ID
+------------------------------------------
+create or replace procedure cancel_transaction(v_tid number)
+as
+    v_status number;    -- status of transaction
+    v_vid    number;    -- visitor id
+    v_fid    number;    -- facility id
+    v_type   number;    -- transaction type(1=entry/other, 2=campsite reservation, 3=tour reservation)
+    v_start_time timestamp; -- start time for transaction
+    v_num_adults number;
+    v_num_children number;
+    v_available_spots number;   -- available spots for a tour
+    v_tour_name varchar(100);   -- name of tour   
+begin
+   
+   -- 1) check if a transaction exits
+   begin
+        select status, visitor_id, facility_id, start_time, num_adults, num_children
+        into v_status, v_vid, v_fid, v_start_time, v_num_adults, v_num_children
+        from transactions
+        where transaction_id = v_tid;
+    exception
+        when no_data_found then
+            dbms_output.put_line('Transaction not found');
+            return;
+    end;
+    
+    -- 2) check if the status of the transaction is already canceled
+    if v_status = 3 then        -- status 3 = canceled
+        dbms_output.put_line('This transaction already gets canceled');
+        return;
+    end if;
+    
+    -- 3) update the status to canceled if the transaction has not been canceled
+    update transactions
+    set status = 3
+    where transaction_id = v_tid;
+    
+    -- 4) find the associated tour detail for a tour reservation
+    -- update the availibility of the tour
+if v_type = 3 then
+    begin
+        select f.facility_name, td.available_spots
+        into v_tour_name, v_available_spots
+        from tour_detail td, facilities f
+        where f.facility_id = td.facility_id
+        and td.facility_id = v_fid
+        and td.start_time = v_start_time;
+        
+        -- increase the num of available spots by adding num of adults and children
+        v_available_spots := v_available_spots + nvl(v_num_adults,0) + nvl(v_num_children,0);
+        
+        -- update the available spots to tour details
+        update tour_detail
+        set available_spots = v_available_spots
+        where facility_id = v_fid and start_time = v_start_time;
+        
+        -- print the new tour details
+        dbms_output.put_line('Tour ' || v_tour_name || ' starting at ' || v_start_time ||
+        ' now has ' || v_available_spots || ' available spots');
+        
+        -- exception for tour detial that do not match tour reservation type 3
+        exception 
+            when no_data_found then
+                dbms_output.put_line('There is no match in tour_detail');
+        end;
+end if;
+
+    
+    -- 5) insert a transaction message for the new canceled transaction
+    insert into message(message_id, visitor_id, message_time, body)
+    values (seq_message_id.nextval, v_vid, systimestamp, 
+    'Your transaction ' || v_tid || ' has been canceled');
+    
+    commit;
+end;
+/
+
+set serveroutput on;
+ 
+-- Test Case 1: Regular Case
+-- Canceling tour reservation
+begin
+    dbms_output.put_line('Test 1 cancel transaction');
+    cancel_transaction(3);
+end;
+/
+
+-- Test Case 2: Special Case
+-- Canceling tour reservation that has already been canceled
+begin
+    dbms_output.put_line('Test 2 cancel tour that has already been canceled');
+    cancel_transaction(3);   
+end;
+/
+
+-- Test Case 3: Special Case
+-- No transaction was found
+begin
+    dbms_output.put_line('Test 3 canceling transaction that does not exist');
+    cancel_transaction(123);
+end;
+/
+
+-- Test Case 4: Special Case
+-- Canceling another tour type that is not tour reservartion (type 3)
+-- other types: types 1 = entry and type 2 = campsite
+begin
+    dbms_output.put_line('Test 4 canceling other transaction type');
+    cancel_transaction(2);
+end;
+/
+
 --------------------------------------------------------------
 -- Feature 10 (Udoka) — Print Statistics
 --------------------------------------------------------------
