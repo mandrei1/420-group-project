@@ -593,7 +593,7 @@ if v_count > 0 then
  dbms_output.put_line ('The campsite is not available due to a conflict');
  return; 
  end if; 
-end if;
+
  
 select daily_price
 into v_getDPrice
@@ -627,25 +627,19 @@ end;
 
 /
 
---test case
-EXEC featureSevens(1, 1, DATE '2026-01-10', 2, 2, 1);
 
---test case
+
+-- Successful
 EXEC featureSevens(2, 2, DATE '2026-02-15', 4, 3, 2);
 
---special case
+-- Conflict Cases
 EXEC featureSevens(1, 3, DATE '2026-03-05', 3, 2, 1);
-
---special case
 EXEC featureSevens(1, 2, DATE '2026-04-18', 5, 4, 1);
-
---special case
 EXEC featureSevens(2, 1, DATE '2026-05-22', 6, 5, 3);
 
+-- Successful — No Conflict
+EXEC featureSevens(2, 3, DATE '2027-08-10', 3, 2, 1);
 
-
-
-    
 --------------------------------------------------------------
 -- Feature 8 (Mara) — Reserve a tour
 --------------------------------------------------------------
