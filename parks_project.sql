@@ -156,6 +156,22 @@ INSERT INTO transactions VALUES (
 INSERT INTO message VALUES (1, 1, SYSTIMESTAMP, 'Welcome to Rock Creek Park!');
 INSERT INTO message VALUES (2, 2, SYSTIMESTAMP, 'Your tour reservation is confirmed.');
 INSERT INTO message VALUES (3, 3, SYSTIMESTAMP, 'Your campsite reservation is confirmed.');
+--------------------------------------------------------------
+--Update Statements to tour_detail table, alter and update for Feature 3
+
+alter table tour_detail
+add tour_name varchar2(250); 
+
+UPDATE TOUR_DETAIL
+SET TOUR_NAME = 'Tour A'
+WHERE TOUR_DETAIL_ID = 1;
+UPDATE TOUR_DETAIL
+SET TOUR_NAME = 'Tour B'
+WHERE TOUR_DETAIL_ID = 2;
+UPDATE TOUR_DETAIL
+SET TOUR_NAME = 'Tour C'
+WHERE TOUR_DETAIL_ID = 3;
+
 
 --------------------------------------------------------------
 -- END OF SETUP SECTION
@@ -255,7 +271,39 @@ BEGIN
   END LOOP;
 END;
 /
+-----------------------------------------------------------------------
+--Feature 3 (Shreyan) Given a tour and a date, list all available tour start time and available spots. 
+-----------------------------------------------------------------------
+create or replace procedure listTimeSpots ( tname in varchar2 , tdate in date ) 
+is
+checkCond number; 
+begin 
+select count(*)
+into checkCond
+from tour_detail
+where tour_name=tname and trunc(start_time)=tdate; 
+-- If there is a tour with this name than proceed, if not print 'No such tour' 
+if checkCond=0 then
+    dbms_output.put_line( 'No such tour' ) ; 
+    return;
+    end if; 
+for allspots in (      
+select start_time , available_spots 
+from tour_detail
+where tour_name=tname and trunc(start_time)=tdate
+)
+ loop
+    --print out all start times and number of available spots of that tour on the input date.  
+dbms_output.put_line('Start time: '|| allspots.start_time || ' Available Spots: ' || allspots.available_spots );
+end loop;
 
+end;
+/
+EXEC listTimeSpots(  'Tour A' ,DATE '2025-12-21' );
+EXEC listTimeSpots('Tour C' , DATE '2025-12-22');
+--Special case where the tour does not exist because wrong date and name
+EXEC listTimeSpots('Tour D' , DATE '2025-12-22');
+    
 -----------------------------------------------------------------------
 -- Feature 4 (Alex) - List all parking lots that have available spots in a park
 -----------------------------------------------------------------------
@@ -455,6 +503,149 @@ BEGIN
     END IF;
 END;
 /
+--------------------------------------------------------------
+/* Feature 7 (Shreyan) - Reserve a campsite. 
+    Input includes a facility id, a visitor ID a start date, 
+    number of days, number of adults, number of children. 
+*/
+--------------------------------------------------------------
+set serveroutput on; 
+
+create or replace procedure featureSevens(fid in number, vid in number, sDate in date, daysnumber in number, adultnumber in number, childnumber in number) 
+is 
+  
+-- variables
+checkCamp number; 
+checkVisit number; 
+totalInput number:= adultnumber+childnumber;
+totalPrice number;
+v_getDPrice number;
+findMaxFID number;
+findMaxMID number;
+v_capacity number;
+v_count number; 
+v_CurEndCalc timestamp;
+v_CurStCalc  timestamp;
+v_newendCalc timestamp;
+v_newstCalc timestamp;
+v_fType facilities.facility_type%type;
+v_fStatus facilities.status%type;
+v_stTime transactions.start_time%type;
+v_numDays transactions.num_of_days%type;
+
+v_getFname facilities.facility_name%type;
+insertbody varchar2(4000); 
+
+
+
+begin 
+
+-- use select statement and if campsite exists 
+
+select count (*) 
+into checkCamp
+from facilities
+where facility_type = 'campsite'  and facility_id=fid;
+
+if checkCamp= 0 then 
+    dbms_output.put_line('No Such Campsite  ') ; 
+    return;
+    end if; 
+
+--use select statement and check if the visitor exists
+
+select count(*)
+into checkVisit
+from visitors
+where visitor_id=vid;
+
+if checkVisit= 0 then 
+    dbms_output.put_line('No Such Visitor  ') ; 
+    return; 
+    end if; 
+    
+    
+--Use select staterment and totalInput to check capacity
+
+select capacity
+into v_capacity
+from facilities
+where facility_id=fid;
+
+if totalInput> v_capacity then
+    dbms_output.put_line('Insuffient Capacity' ); 
+    return; 
+    end if;
+    
+    
+    
+--use select statement and go to step 3 of feature 6 -- use durationCalc
+
+select count(*) into v_count
+from transactions t
+where t.facility_id=fid
+and t.transaction_type=2
+and t.status !=3
+and trunc(sDate) < trunc(t.start_time) + NUMTODSINTERVAl(t.num_of_days, 'DAY')
+and trunc(t.start_time)< trunc(sdate)+ NUMTODSINTERVAL(daysnumber, 'DAY'); 
+
+if v_count > 0 then 
+ dbms_output.put_line ('The campsite is not available due to a conflict');
+ return; 
+ end if; 
+end if;
+ 
+select daily_price
+into v_getDPrice
+from facilities
+where facility_id=fid;
+
+totalPrice:= daysnumber*v_getDPrice; 
+
+
+
+-- insert if no conflict 
+
+insert into transactions (transaction_id, visitor_id, transaction_type, facility_id, start_time, num_of_days, num_adults, num_children, total_price, status)
+values (seq_txn_id.nextval, vid, 2,fid, trunc(sdate)+ numtodsinterval (15, 'HOUR' ), daysnumber,   adultnumber,childnumber, totalPrice, 1) ;
+
+
+
+
+select facility_name
+into v_getFname
+from facilities 
+where facility_id=fid; 
+
+-- insert if no conflict 
+insertBody:= 'Thanks for reserving campsite ' || v_getFname || ' from  ' || sdate || ' for ' || daysnumber|| ' days. ' ; 
+insert into message( message_id, visitor_id, message_time, body )
+values (seq_message_id.NextVal, vid, systimestamp, insertBody) ; 
+
+
+end; 
+
+/
+
+--test case
+EXEC featureSevens(1, 1, DATE '2026-01-10', 2, 2, 1);
+
+--test case
+EXEC featureSevens(2, 2, DATE '2026-02-15', 4, 3, 2);
+
+--special case
+EXEC featureSevens(1, 3, DATE '2026-03-05', 3, 2, 1);
+
+--special case
+EXEC featureSevens(1, 2, DATE '2026-04-18', 5, 4, 1);
+
+--special case
+EXEC featureSevens(2, 1, DATE '2026-05-22', 6, 5, 3);
+
+
+
+
+    
 --------------------------------------------------------------
 -- Feature 8 (Mara) — Reserve a tour
 --------------------------------------------------------------
