@@ -746,3 +746,155 @@ BEGIN
 END;
 /
 
+--------------------------------------------------------------
+-- Feature 10 (Udoka) — Print Statistics
+--------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE print_statistics (
+    p_start_date IN DATE,
+    p_end_date   IN DATE
+)
+AS
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('===== Feature 10: Statistics from '
+                         || TO_CHAR(p_start_date, 'YYYY-MM-DD')
+                         || ' to '
+                         || TO_CHAR(p_end_date, 'YYYY-MM-DD')
+                         || ' =====');
+
+    ----------------------------------------------------------
+    -- 1) Park name + total # uncanceled transactions + total $
+    ----------------------------------------------------------
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (1) Transactions and Revenue per Park ---');
+
+    FOR rec IN (
+        SELECT p.park_name,
+               COUNT(*) AS txn_count,
+               NVL(SUM(t.total_price), 0) AS total_revenue
+        FROM parks p
+        JOIN facilities f
+          ON f.park_id = p.park_id
+        JOIN transactions t
+          ON t.facility_id = f.facility_id
+        WHERE t.status <> 3
+          AND TRUNC(t.start_time) BETWEEN p_start_date AND p_end_date
+        GROUP BY p.park_name
+        ORDER BY p.park_name
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            'Park: ' || rec.park_name ||
+            ' | Transactions: ' || rec.txn_count ||
+            ' | Total price: ' || rec.total_revenue
+        );
+    END LOOP;
+
+
+    ----------------------------------------------------------
+    -- 2) Name of each park + number of visitors (type 1)
+    ----------------------------------------------------------
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (2) Number of Visitors per Park (type 1) ---');
+
+    FOR rec IN (
+        SELECT p.park_name,
+               COUNT(*) AS num_visitors
+        FROM parks p
+        JOIN facilities f
+          ON f.park_id = p.park_id
+        JOIN transactions t
+          ON t.facility_id = f.facility_id
+        WHERE t.status <> 3
+          AND t.transaction_type = 1
+          AND TRUNC(t.start_time) BETWEEN p_start_date AND p_end_date
+        GROUP BY p.park_name
+        ORDER BY p.park_name
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            'Park: ' || rec.park_name ||
+            ' | Visitors (type 1 txns): ' || rec.num_visitors
+        );
+    END LOOP;
+
+
+    ----------------------------------------------------------
+    -- 3) For each park: campsite with most uncanceled reservations
+    ----------------------------------------------------------
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (3) Top Campsite per Park (by reservations) ---');
+
+    FOR rec IN (
+        SELECT park_name,
+               facility_name,
+               reservation_count
+        FROM (
+            SELECT p.park_name,
+                   f.facility_name,
+                   COUNT(*) AS reservation_count,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY p.park_id
+                       ORDER BY COUNT(*) DESC, f.facility_name
+                   ) AS rn
+            FROM parks p
+            JOIN facilities f
+              ON f.park_id = p.park_id
+            JOIN transactions t
+              ON t.facility_id = f.facility_id
+            WHERE f.facility_type = 'campsite'
+              AND t.transaction_type = 2      -- campsite reservation
+              AND t.status <> 3               -- not canceled
+              AND TRUNC(t.start_time) BETWEEN p_start_date AND p_end_date
+            GROUP BY p.park_id, p.park_name, f.facility_name
+        )
+        WHERE rn = 1
+        ORDER BY park_name
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            'Park: ' || rec.park_name ||
+            ' | Top campsite: ' || rec.facility_name ||
+            ' | Reservations: ' || rec.reservation_count
+        );
+    END LOOP;
+
+
+    ----------------------------------------------------------
+    -- 4) For each park: tour with most uncanceled reservations
+    ----------------------------------------------------------
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (4) Top Tour per Park (by reservations) ---');
+
+    FOR rec IN (
+        SELECT park_name,
+               facility_name,
+               reservation_count
+        FROM (
+            SELECT p.park_name,
+                   f.facility_name,
+                   COUNT(*) AS reservation_count,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY p.park_id
+                       ORDER BY COUNT(*) DESC, f.facility_name
+                   ) AS rn
+            FROM parks p
+            JOIN facilities f
+              ON f.park_id = p.park_id
+            JOIN transactions t
+              ON t.facility_id = f.facility_id
+            WHERE f.facility_type = 'tour'
+              AND t.transaction_type = 3      -- tour reservation
+              AND t.status <> 3               -- not canceled
+              AND TRUNC(t.start_time) BETWEEN p_start_date AND p_end_date
+            GROUP BY p.park_id, p.park_name, f.facility_name
+        )
+        WHERE rn = 1
+        ORDER BY park_name
+    )
+    LOOP
+        DBMS_OUTPUT.PUT_LINE(
+            'Park: ' || rec.park_name ||
+            ' | Top tour: ' || rec.facility_name ||
+            ' | Reservations: ' || rec.reservation_count
+        );
+    END LOOP;
+
+END;
+/
