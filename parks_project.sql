@@ -271,6 +271,10 @@ BEGIN
   END LOOP;
 END;
 /
+EXEC list_transactions_by_visitor('John Doe');
+EXEC list_transactions_by_visitor('Sarah Kim');
+-- Special case where the visitor does not exist
+EXEC list_transactions_by_visitor('Michael Scott');
 -----------------------------------------------------------------------
 --Feature 3 (Shreyan) Given a tour and a date, list all available tour start time and available spots. 
 -----------------------------------------------------------------------
@@ -745,6 +749,10 @@ BEGIN
 
 END;
 /
+EXEC reserve_tour( 5 , 1 , TIMESTAMP '2025-12-21 10:00' , 2 , 1 );
+EXEC reserve_tour(6, 2 , TIMESTAMP '2025-12-22 09:00' , 1 , 1 );
+--Special case where the tour does not exist because wrong facility_id and wrong date
+EXEC reserve_tour( 999 , 1 , TIMESTAMP '2025-12-22 15:00' , 2 , 1 );
 
 ------------------------------------------
 -- Feature 9 (Alex): Cancel a transaction
