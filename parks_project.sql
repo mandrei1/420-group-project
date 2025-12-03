@@ -228,6 +228,26 @@ BEGIN
     END;
 END;
 /
+
+    SELECT * FROM visitors ORDER BY visitor_id;
+
+EXEC add_visitor(
+    'Milly',
+    'milly@gmail.com',
+    '13459 Centennial Lane',
+    'MD',
+    '21042'
+);
+
+EXEC add_visitor(
+    'Milly',
+    'milly@gmail.com',
+    '2000 Baltimore National Pike',
+    'MD',
+    '21250'
+);
+
+SELECT * FROM visitors WHERE email = 'milly@gmail.com';
 --------------------------------------------------------------
 -- Feature 2 (Mara) — List all transactions placed by a visitor
 --------------------------------------------------------------
