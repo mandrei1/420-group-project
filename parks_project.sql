@@ -384,9 +384,10 @@ commit;
     list_available_parking('Patapsco Valley Park');
 end;
 /
-    
+---------------------------------------------------------------------    
 
 --feature 5 (Rosaire) update status of a parking lot
+----------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE update_parking_status (
     p_facility_id IN NUMBER,
     p_spots_taken IN NUMBER
@@ -445,7 +446,25 @@ BEGIN
     END IF;
 END;
 /
+-- Test 1: Regular Case (parking lot becomes FULL)
+set serveroutput on;
+
+BEGIN
+    dbms_output.put_line('Test 1: Regular Case - Lot becomes FULL');
+    update_parking_status(5, 80);  -- Facility 5 = Lot River, capacity = 80
+END;
+/
+-- Test 2: Special Case (parking lot becomes LIMITED)
+set serveroutput on;
+
+BEGIN
+    dbms_output.put_line('Test 2: Special Case - Lot becomes LIMITED');
+    update_parking_status(6, 72);  -- Facility 6 = Lot River (capacity 80)
+END;
+/
+------------------------------------------------------------------------------------------
 -- Feature 6 (Rosaire) — List Available Campsites
+-------------------------------------------------------------------------------------------
 CREATE OR REPLACE PROCEDURE list_available_campsites (
     p_park_name  IN VARCHAR2,
     p_start_date IN DATE,
@@ -507,6 +526,33 @@ BEGIN
     END IF;
 END;
 /
+-- Test 1: Regular Case (Available Campsite)
+set serveroutput on;
+
+BEGIN
+    dbms_output.put_line('Test 1: Regular Case - Campsite A1 available');
+    list_available_campsites(
+        'Centennial Park',
+        DATE '2025-10-20',
+        DATE '2025-10-22',
+        4
+    );
+END;
+/
+-- Test 2: Special Case - No such park
+set serveroutput on;
+
+BEGIN
+    dbms_output.put_line('Test 2: Special Case - Park does not exist');
+    list_available_campsites(
+        'Magic Kingdom',
+        DATE '2025-10-20',
+        DATE '2025-10-22',
+        4
+    );
+END;
+/
+
 --------------------------------------------------------------
 /* Feature 7 (Shreyan) - Reserve a campsite. 
     Input includes a facility id, a visitor ID a start date, 
