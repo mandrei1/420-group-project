@@ -1087,3 +1087,14 @@ BEGIN
 
 END;
 /
+
+-- show transactions so the professor sees the inputs
+SELECT transaction_id, visitor_id, transaction_type, facility_id,
+       start_time, num_adults, num_children, total_price, status
+FROM transactions
+ORDER BY transaction_id;
+
+EXEC print_statistics(
+    DATE '2025-12-19',
+    DATE '2025-12-25'
+);
