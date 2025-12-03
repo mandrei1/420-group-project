@@ -918,7 +918,6 @@ end;
 --------------------------------------------------------------
 -- Feature 10 (Udoka) — Print Statistics
 --------------------------------------------------------------
-
 CREATE OR REPLACE PROCEDURE print_statistics (
     p_start_date IN DATE,
     p_end_date   IN DATE
@@ -960,13 +959,14 @@ BEGIN
 
 
     ----------------------------------------------------------
-    -- 2) Name of each park + number of visitors (type 1)
+    -- 2) Park name + NUMBER OF VISITORS (adults + children)
+    --    for uncanceled type=1 transactions in date range
     ----------------------------------------------------------
-    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (2) Number of Visitors per Park (type 1) ---');
+    DBMS_OUTPUT.PUT_LINE(CHR(10) || '--- (2) Number of Visitors per Park (type 1, adults+children) ---');
 
     FOR rec IN (
         SELECT p.park_name,
-               COUNT(*) AS num_visitors
+               NVL(SUM(t.num_adults + t.num_children), 0) AS num_visitors
         FROM parks p
         JOIN facilities f
           ON f.park_id = p.park_id
@@ -981,7 +981,7 @@ BEGIN
     LOOP
         DBMS_OUTPUT.PUT_LINE(
             'Park: ' || rec.park_name ||
-            ' | Visitors (type 1 txns): ' || rec.num_visitors
+            ' | Visitors (adults + children): ' || rec.num_visitors
         );
     END LOOP;
 
