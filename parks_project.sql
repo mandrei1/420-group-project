@@ -466,22 +466,41 @@ BEGIN
     END IF;
 END;
 /
--- Test 1: Regular Case (parking lot becomes FULL)
-set serveroutput on;
+SET SERVEROUTPUT ON;
+
+-- BEFORE
+SELECT *
+FROM facilities
+WHERE facility_id = 5;
 
 BEGIN
     dbms_output.put_line('Test 1: Regular Case - Lot becomes FULL');
     update_parking_status(5, 80);  -- Facility 5 = Lot River, capacity = 80
 END;
 /
+
+-- AFTER
+SELECT *
+FROM facilities
+WHERE facility_id = 5;
 -- Test 2: Special Case (parking lot becomes LIMITED)
-set serveroutput on;
+SET SERVEROUTPUT ON;
+
+-- BEFORE
+SELECT *
+FROM facilities
+WHERE facility_id = 6;
 
 BEGIN
     dbms_output.put_line('Test 2: Special Case - Lot becomes LIMITED');
-    update_parking_status(6, 72);  -- Facility 6 = Lot River (capacity 80)
+    update_parking_status(6, 72);  -- Facility 6 = Lot River, capacity 80
 END;
 /
+
+-- AFTER
+SELECT *
+FROM facilities
+WHERE facility_id = 6;
 ------------------------------------------------------------------------------------------
 -- Feature 6 (Rosaire) — List Available Campsites
 -------------------------------------------------------------------------------------------
@@ -547,10 +566,27 @@ BEGIN
 END;
 /
 -- Test 1: Regular Case (Available Campsite)
-set serveroutput on;
+SET SERVEROUTPUT ON;
+
+-- Show park
+SELECT *
+FROM parks
+WHERE park_name = 'Centennial Park';
+
+-- Show campsites in the park
+SELECT *
+FROM facilities
+WHERE park_id = 1
+  AND facility_type = 'campsite';
+
+-- Show existing campsite reservations
+SELECT *
+FROM transactions
+WHERE transaction_type = 2
+  AND facility_id = 1;
 
 BEGIN
-    dbms_output.put_line('Test 1: Regular Case - Campsite A1 available');
+    DBMS_OUTPUT.PUT_LINE('Test 1: Regular Case - Campsite A1 available');
     list_available_campsites(
         'Centennial Park',
         DATE '2025-10-20',
@@ -560,10 +596,15 @@ BEGIN
 END;
 /
 -- Test 2: Special Case - No such park
-set serveroutput on;
+SET SERVEROUTPUT ON;
+
+-- Show park lookup (should return no rows)
+SELECT *
+FROM parks
+WHERE park_name = 'Magic Kingdom';
 
 BEGIN
-    dbms_output.put_line('Test 2: Special Case - Park does not exist');
+    DBMS_OUTPUT.PUT_LINE('Test 2: Special Case - Park does not exist');
     list_available_campsites(
         'Magic Kingdom',
         DATE '2025-10-20',
@@ -572,7 +613,6 @@ BEGIN
     );
 END;
 /
-
 --------------------------------------------------------------
 /* Feature 7 (Shreyan) - Reserve a campsite. 
     Input includes a facility id, a visitor ID a start date, 
