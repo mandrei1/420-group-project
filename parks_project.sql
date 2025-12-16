@@ -944,36 +944,71 @@ set serveroutput on;
  
 -- Test Case 1: Regular Case
 -- Canceling tour reservation
+
+-- show the tables before 
+-- the status should be 1 since the transaction hasn't been canceled
+select * from transactions where transaction_id = 3;
+
 begin
     dbms_output.put_line('Test 1 cancel transaction');
     cancel_transaction(3);
 end;
 /
 
+-- show the tables after
+-- the status should be 3 now that it has been canceled
+select * from transactions where transaction_id = 3;
+
 -- Test Case 2: Special Case
 -- Canceling tour reservation that has already been canceled
+
+-- show the tables before
+-- the status should be 3 since this transaction was already canceled
+select * from transactions where transaction_id = 3;
+
 begin
     dbms_output.put_line('Test 2 cancel tour that has already been canceled');
     cancel_transaction(3);   
 end;
 /
 
+-- show the tables after
+-- the status should still be 3 because the transaction was already canceled
+select * from transactions where transaction_id = 3;
+
 -- Test Case 3: Special Case
 -- No transaction was found
+
 begin
     dbms_output.put_line('Test 3 canceling transaction that does not exist');
     cancel_transaction(123);
 end;
 /
 
+-- show table after
+-- should not show anything since transaction 123 doesn't exist
+select * from transactions where transaction_id = 123;
+
 -- Test Case 4: Special Case
 -- Canceling another tour type that is not tour reservartion (type 3)
 -- other types: types 1 = entry and type 2 = campsite
+
+-- show the tables before
+-- transaction status will not be 3
+select * from transactions where transaction_id = 2;
+
 begin
     dbms_output.put_line('Test 4 canceling other transaction type');
     cancel_transaction(2);
 end;
 /
+
+-- show the tables after
+-- transaction status should now be 3
+select * from transactions where transaction_id = 2;
+
+-- show the message table for the new canceled transactions
+select * from message;
 
 --------------------------------------------------------------
 -- Feature 10 (Udoka) — Print Statistics
