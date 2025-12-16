@@ -327,7 +327,36 @@ EXEC listTimeSpots(  'Tour A' ,DATE '2025-12-21' );
 EXEC listTimeSpots('Tour C' , DATE '2025-12-22');
 --Special case where the tour does not exist because wrong date and name
 EXEC listTimeSpots('Tour D' , DATE '2025-12-22');
-    
+
+-------------------------------------------------
+-- FEATURE 3 : VERIFICATION SELECT STATEMENTS
+-------------------------------------------------
+
+-- Verify Tour A exists on 2025-12-21
+SELECT *
+FROM tour_detail
+WHERE tour_name = 'Tour A'
+  AND TRUNC(start_time) = DATE '2025-12-21';
+
+-- Verify Tour C exists on 2025-12-22
+SELECT *
+FROM tour_detail
+WHERE tour_name = 'Tour C'
+  AND TRUNC(start_time) = DATE '2025-12-22';
+
+-- Verify NO SUCH TOUR case (should return 0 rows)
+SELECT *
+FROM tour_detail
+WHERE tour_name = 'Tour D'
+  AND TRUNC(start_time) = DATE '2025-12-22';
+
+-- Verify start times and available spots match output
+SELECT start_time, available_spots
+FROM tour_detail
+WHERE tour_name = 'Tour A'
+  AND TRUNC(start_time) = DATE '2025-12-21'
+ORDER BY start_time;
+
 -----------------------------------------------------------------------
 -- Feature 4 (Alex) - List all parking lots that have available spots in a park
 -----------------------------------------------------------------------
@@ -765,6 +794,46 @@ EXEC featureSevens(2, 1, DATE '2026-05-22', 6, 5, 3);
 
 -- Successful — No Conflict
 EXEC featureSevens(2, 3, DATE '2027-08-10', 3, 2, 1);
+
+-------------------------------------------------
+-- FEATURE 7 : VERIFICATION SELECT STATEMENTS
+-------------------------------------------------
+
+-- Verify campsite exists
+SELECT *
+FROM facilities
+WHERE facility_id = 2
+  AND facility_type = 'campsite';
+
+-- Verify visitor exists
+SELECT *
+FROM visitors
+WHERE visitor_id = 2;
+
+-- Verify capacity of campsite
+SELECT facility_id, capacity
+FROM facilities
+WHERE facility_id = 2;
+
+-- Verify SUCCESSFUL reservation was inserted
+SELECT *
+FROM transactions
+WHERE facility_id = 2
+  AND visitor_id = 2
+  AND TRUNC(start_time) = DATE '2026-02-15';
+
+-- Verify conflict prevention (existing reservations)
+SELECT *
+FROM transactions
+WHERE facility_id = 1
+ORDER BY start_time;
+
+-- Verify confirmation message was created
+SELECT *
+FROM message
+WHERE visitor_id = 2
+ORDER BY message_time DESC;
+
 
 --------------------------------------------------------------
 -- Feature 8 (Mara) — Reserve a tour
