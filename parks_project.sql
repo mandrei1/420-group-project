@@ -370,40 +370,56 @@ begin
 end;
 /
 
--- Test 1: Regular Case
--- Check an existing park for available parking spots
 set serveroutput on;
 
+-- Test 1: Regular Case
+-- Check an existing park for available parking spots
+-- show table before
+-- check for parking lot availability for rock creek park
+select * from facilities where facility_type = 'parking' and park_id = (
+    select park_id from parks where park_name = 'Rock Creek Park');
+
 begin
-    dbms_output.put_line('Test 1');
-    list_available_parking('Centennial Park');
+    dbms_output.put_line('Test 1 Check for available parking spots');
+    list_available_parking('Rock Creek Park');
 end;
 /
+
+-- show the table after
+-- should still show that Rock Creek Park has available parking
+select * from facilities where facility_type = 'parking' and park_id = (
+    select park_id from parks where park_name = 'Rock Creek Park');
 
 -- Test 2: Special Case
 -- Check a nonexiting park for parking spots
 begin
-    dbms_output.put_line('Test 2');
+    dbms_output.put_line('Test 2 Check for parking spots in a nonexistent park');
     list_available_parking('Yosemite National Park');
 end;
 /
 
+-- should show no rows since the park doesn't exist
+select * from parks where park_name = 'Yosemite National Park';
+
 -- Test 3: Special
 -- Existing park but there are no available parking spots
 -- have to update one of the parks to 'full'
-declare
+
+-- show table before of the parking status
+select * from facilities where facility_type = 'parking' and park_id = (
+    select park_id from parks where park_name = 'Blue Ridge Park');
+
 begin
-    update facilities f set f.spots_taken = f.capacity, f.status = 3
-    where f.facility_type = 'parking'
-    and f.park_id = (
-        select park_id from parks where park_name = 'Patapsco Valley Park' 
-    );
-    
-commit;
-    dbms_output.put_line('Test 3');
-    list_available_parking('Patapsco Valley Park');
+    dbms_output.put_line('Test 3 Check a parking lot that is already full');
+    dbms_output.put_line('Blue Ridge Park is already full');
 end;
 /
+
+-- show table after
+-- all parking lot should still show that they are full, status = 3
+select * from facilities where facility_type = 'parking' and park_id = (
+    select park_id from parks where park_name = 'Blue Ridge Park');
+
 ---------------------------------------------------------------------    
 
 --feature 5 (Rosaire) update status of a parking lot
@@ -1007,6 +1023,7 @@ end;
 -- transaction status should now be 3
 select * from transactions where transaction_id = 2;
 
+-- Test Case 5: Regular Case
 -- show the message table for the new canceled transactions
 select * from message;
 
