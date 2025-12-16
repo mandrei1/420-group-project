@@ -328,9 +328,7 @@ EXEC listTimeSpots('Tour C' , DATE '2025-12-22');
 --Special case where the tour does not exist because wrong date and name
 EXEC listTimeSpots('Tour D' , DATE '2025-12-22');
 
--------------------------------------------------
--- FEATURE 3 : VERIFICATION SELECT STATEMENTS
--------------------------------------------------
+-- verify statements for feature 3
 
 -- Verify Tour A exists on 2025-12-21
 SELECT *
@@ -344,7 +342,7 @@ FROM tour_detail
 WHERE tour_name = 'Tour C'
   AND TRUNC(start_time) = DATE '2025-12-22';
 
--- Verify NO SUCH TOUR case (should return 0 rows)
+-- Verify NO SUCH TOUR case ( return 0 rows)
 SELECT *
 FROM tour_detail
 WHERE tour_name = 'Tour D'
@@ -795,9 +793,7 @@ EXEC featureSevens(2, 1, DATE '2026-05-22', 6, 5, 3);
 -- Successful — No Conflict
 EXEC featureSevens(2, 3, DATE '2027-08-10', 3, 2, 1);
 
--------------------------------------------------
--- FEATURE 7 : VERIFICATION SELECT STATEMENTS
--------------------------------------------------
+-- verify feature 7 code workings
 
 -- Verify campsite exists
 SELECT *
